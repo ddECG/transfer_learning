@@ -3,7 +3,7 @@ import torch
 import os
 from tqdm import tqdm
 from resnet import ResNet1d
-from dataloader import BatchDataloader
+from batch_loader import BatchDataloader
 import torch.optim as optim
 import numpy as np
 

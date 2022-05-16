@@ -130,4 +130,4 @@ dmypy.json
 
 # data
 data/ptb-xl
-.h5py
+*.hdf5

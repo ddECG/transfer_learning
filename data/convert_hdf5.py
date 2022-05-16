@@ -79,7 +79,8 @@ def main(dir: str, save_location: str):
     create_h5py(signal_data, exam_data, save_location)
 
 
-#  
+#ex run: bash python convert_hdf5.py ./ptb-xl/1.0.1/records500/00000/ test.hdf5
+
 if __name__ == "__main__":
 
     # Extract args
