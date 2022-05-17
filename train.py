@@ -165,7 +165,7 @@ if __name__ == "__main__":
     df = pd.read_csv(args.path_to_csv, index_col=args.ids_col)
 
     # Remove nans
-    df.dropna(axis=0, subset=[args.age_col])
+    df.dropna(axis=0, subset=[args.age_col],inplace=True)
 
     ages = df[args.age_col]
     # Get h5 data
