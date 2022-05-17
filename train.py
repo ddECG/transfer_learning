@@ -163,6 +163,10 @@ if __name__ == "__main__":
     tqdm.write("Building data loaders...")
     # Get csv data
     df = pd.read_csv(args.path_to_csv, index_col=args.ids_col)
+
+    # Remove nans
+    df.dropna(axis=0, subset=[args.age_col])
+
     ages = df[args.age_col]
     # Get h5 data
     f = h5py.File(args.path_to_traces, 'r')
