@@ -10,7 +10,7 @@ import numpy as np
 
 # Internal libraries
 from resnet import ResNet1d
-from lima_code.dataloader import BatchDataloader
+from dataloader import BatchDataloader
 
 
 # Constants
@@ -135,7 +135,7 @@ def train(args):
         tqdm.write(f"\tValid loss: {valid_loss}.\n\tLearning rate {learning_rate}.")
 
         # Update history
-        history = history.concat({"epoch": epoch, "train_loss": train_loss,
+        history = history.append({"epoch": epoch, "train_loss": train_loss,
                                 "valid_loss": valid_loss, "lr": learning_rate}, ignore_index=True)
         history.to_csv(os.path.join(args.model, 'history.csv'), index=False)        
 
