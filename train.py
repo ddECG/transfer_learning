@@ -105,7 +105,7 @@ def train(args):
                                     'weighted_rmse', 'weighted_mae', 'rmse', 'mse'])
     
     # Epoch (Training) loop
-    for epoch in tqdm(range(args.epochs)):
+    for epoch in range(start_epoch, args.epochs):
 
         # Train (and store loss)
         train_loss = training(epoch, args.epochs, train_loader, model, device, optimizer)
@@ -252,9 +252,9 @@ def training(epoch, n_epochs, train_data, model, device, optimizer):
         optimizer.step()
 
         # Update
-        n_entries = len(traces)
+        bs = len(traces)
         total_loss += loss.detach().cpu().numpy()
-        total_entries += n_entries
+        total_entries += bs
         
         # Update progress bar
         train_bar.desc = train_desc.format(epoch, n_epochs, total_loss / total_entries)
@@ -262,6 +262,8 @@ def training(epoch, n_epochs, train_data, model, device, optimizer):
     
     # Close train bar
     train_bar.close()
+    return(total_loss / total_entries)
+
 
 
 def evaluate(epoch, n_epochs, validation_data, model, device, optimizer):
@@ -298,13 +300,13 @@ def evaluate(epoch, n_epochs, validation_data, model, device, optimizer):
             loss = compute_loss(ages, predicted_ages, weights)
 
             # Update outputs
-            n_entries = len(traces)
+            bs = len(traces)
             total_loss += loss.detach().cpu().numpy()
-            total_entries += n_entries
+            total_entries += bs
         
             # Update progress bar result
-            eval_bar.desc = eval_desc.format(epoch, n_epochs, total_loss / n_entries)
+            eval_bar.desc = eval_desc.format(epoch, n_epochs, total_loss / total_entries)
             eval_bar.update(1)
     eval_bar.close()
-    return(total_loss / n_entries)
+    return(total_loss / total_entries)
 
