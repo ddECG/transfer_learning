@@ -3,7 +3,7 @@ import torch
 import os
 from tqdm import tqdm
 from resnet import ResNet1d
-from batch_loader import BatchDataloader
+from dataloader import BatchDataloader
 import torch.optim as optim
 import numpy as np
 
@@ -154,11 +154,9 @@ if __name__ == "__main__":
     # Generate output folder if needed
     if not os.path.exists(args.folder):
         os.makedirs(args.folder)
-    
-    # Get model
-    ckpt = torch.load(os.path.join(args.folder, 'model.pth'), map_location=lambda storage, loc: storage)
-    # Get config
-    config = os.path.join(args.folder, 'config.json')
+    # Save config file
+    with open(os.path.join(args.folder, 'args.json'), 'w') as f:
+        json.dump(vars(args), f, indent='\t')
 
     tqdm.write("Building data loaders...")
     # Get csv data
@@ -180,7 +178,7 @@ if __name__ == "__main__":
     valid_loader = BatchDataloader(traces, ages, weights, bs=args.batch_size, mask=valid_mask)
     tqdm.write("Done!")
 
-    tqdm.write("Load model...")
+    tqdm.write("Define model...")
     N_LEADS = 12  # the 12 leads
     N_CLASSES = 1  # just the age
     model = ResNet1d(input_dim=(N_LEADS, args.seq_length),
@@ -188,9 +186,6 @@ if __name__ == "__main__":
                      n_classes=N_CLASSES,
                      kernel_size=args.kernel_size,
                      dropout_rate=args.dropout_rate)
-    
-    # load model checkpoint
-    model.load_state_dict(ckpt["model"])
     model.to(device=device)
     tqdm.write("Done!")
 
