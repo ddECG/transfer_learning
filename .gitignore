@@ -12,6 +12,11 @@ data-raw/code-15
 data-raw/cardiovascular_complications
 data-raw/test
 
+# Model
+model/config.json
+model/model.pth
+model/history.csv
+
 # Data
 data/metadata*
 data/predictions*
