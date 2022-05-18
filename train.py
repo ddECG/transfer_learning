@@ -39,7 +39,7 @@ def train(args):
         json.dump(vars(args), f, indent='\t')
     
     # Load checkpoints
-    model_path = os.path.join(args.model, 'model.pth')
+    model_path = os.path.join(args.tune_model, 'model.pth')
     checkpoints = torch.load(model_path, map_location=lambda storage, loc: storage)
     
     # Part 1 - Build data loaders
