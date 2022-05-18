@@ -34,7 +34,7 @@ def train(args):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Create config
-    argument_path = os.path.join(args.model, 'args.json')
+    argument_path = os.path.join(args.model, 'config.json')
     with open(argument_path, "w") as f:
         json.dump(vars(args), f, indent='\t')
     
