@@ -40,8 +40,28 @@ Trains model based on predefined model arcitechture. Can be created by fine tuni
 `python main.py train --data DATA_PATH --metadata METADATA_PATH --model MODEL_PATH`
 **Example**
 `python main.py train --data "data/ptbxl.hdf5" --metadata "data/metadata.csv" --model "model_ptbxl" --replace True --validation_percentage 0.2 --batch_size 6 --epochs 2 --tune True --tune_model "model"`
-# TODO
-Put in instructions and description of ptb-xl
+
+# Data
+### PTB-xl
+**Data format**
+* Data is formated as .dat binary files.
+* Contains both 500hz and 200hz ECG measurments.
+* Data is split in a bunch of ways in relation to quality of ECG (Folds)
+  * Fold 9 + 10 underwent at least one human evaluation (High label quality)
+  * Keep in mind when getting to cross-validation
+
+**Additional data**
+* ECG statements: A bunch of SCP-ECG statements
+* Signal metadata: Stats related to:
+  * Static noise
+  * Burst noise
+  * Baseline drift
+  * Electrodes problems 
+  * Extra beats
+
+**Download raw data**
+Raw data can be downloaded by bash command:
+`wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.1/`
 
 # Citations
 Model and study citation:
