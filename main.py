@@ -47,7 +47,9 @@ if __name__ == "__main__":
                             help='Column name for filename inside metadata (default: "filename_hr").')
     parser_convert.add_argument('--save_csv', required=True, type=str,
                             help='Path to save metadata (.csv).')
-    
+    parser_convert.add_argument('--folder', default=False, type=str,
+                                help='Folders or single file (default: False)')
+
     # Predict arguments
     parser_predict = subparsers.add_parser('predict', help='Predict using defined model.')
     
