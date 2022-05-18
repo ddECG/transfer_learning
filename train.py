@@ -1,245 +1,312 @@
-import json
-import torch
+# External libraries
 import os
 from tqdm import tqdm
-from resnet import ResNet1d
-from batch_loader import BatchDataloader
+import torch
+import json
+import pandas as pd
+import h5py
 import torch.optim as optim
 import numpy as np
 
-
-def compute_loss(ages, pred_ages, weights):
-    diff = ages.flatten() - pred_ages.flatten()
-    loss = torch.sum(weights.flatten() * diff * diff)
-    return loss
+# Internal libraries
+from resnet import ResNet1d
+from dataloader import BatchDataloader
 
 
-def compute_weights(ages, max_weight=np.inf):
-    _, inverse, counts = np.unique(ages, return_inverse=True, return_counts=True)
-    weights = 1 / counts[inverse]
-    normalized_weights = weights / sum(weights)
-    w = len(ages) * normalized_weights
-    # Truncate weights to a maximum
-    if max_weight < np.inf:
-        w = np.minimum(w, max_weight)
-        w = len(ages) * w / sum(w)
-    return w
+# Constants
+from constants import N_LEADS, N_CLASSES
 
+# Function
+def train(args):
+    """ Trains model. """
+    # Check if model already exists
+    if os.path.exists(args.model):
+        if args.replace:
+            tqdm.write("Note: Replacing previously stored model.")
+        else:
+            raise Exception('Model already exist. Change save location or set "--replace" to True.')
 
-def train(ep, dataload):
-    model.train()
-    total_loss = 0
-    n_entries = 0
-    train_desc = "Epoch {:2d}: train - Loss: {:.6f}"
-    train_bar = tqdm(initial=0, leave=True, total=len(dataload),
-                     desc=train_desc.format(ep, 0, 0), position=0)
-    for traces, ages, weights in dataload:
-        traces = traces.transpose(1, 2)
-        traces, ages, weights = traces.to(device), ages.to(device), weights.to(device)
-        # Reinitialize grad
-        model.zero_grad()
-        # Send to device
-        # Forward pass
-        pred_ages = model(traces)
-        loss = compute_loss(ages, pred_ages, weights)
-        # Backward pass
-        loss.backward()
-        # Optimize
-        optimizer.step()
-        # Update
-        bs = len(traces)
-        total_loss += loss.detach().cpu().numpy()
-        n_entries += bs
-        # Update train bar
-        train_bar.desc = train_desc.format(ep, total_loss / n_entries)
-        train_bar.update(1)
-    train_bar.close()
-    return total_loss / n_entries
-
-
-def eval(ep, dataload):
-    model.eval()
-    total_loss = 0
-    n_entries = 0
-    eval_desc = "Epoch {:2d}: valid - Loss: {:.6f}"
-    eval_bar = tqdm(initial=0, leave=True, total=len(dataload),
-                    desc=eval_desc.format(ep, 0, 0), position=0)
-    for traces, ages, weights in dataload:
-        traces = traces.transpose(1, 2)
-        traces, ages, weights = traces.to(device), ages.to(device), weights.to(device)
-        with torch.no_grad():
-            # Forward pass
-            pred_ages = model(traces)
-            loss = compute_loss(ages, pred_ages, weights)
-            # Update outputs
-            bs = len(traces)
-            # Update ids
-            total_loss += loss.detach().cpu().numpy()
-            n_entries += bs
-            # Print result
-            eval_bar.desc = eval_desc.format(ep, total_loss / n_entries)
-            eval_bar.update(1)
-    eval_bar.close()
-    return total_loss / n_entries
-
-
-if __name__ == "__main__":
-    import h5py
-    import pandas as pd
-    import argparse
-    from warnings import warn
-
-    # Arguments that will be saved in config file
-    parser = argparse.ArgumentParser(add_help=True,
-                                     description='Train model to predict rage from the raw ecg tracing.')
-    parser.add_argument('--epochs', type=int, default=70,
-                        help='maximum number of epochs (default: 70)')
-    parser.add_argument('--seed', type=int, default=2,
-                        help='random seed for number generator (default: 2)')
-    parser.add_argument('--sample_freq', type=int, default=400,
-                        help='sample frequency (in Hz) in which all traces will be resampled at (default: 400)')
-    parser.add_argument('--seq_length', type=int, default=4096,
-                        help='size (in # of samples) for all traces. If needed traces will be zeropadded'
-                                    'to fit into the given size. (default: 4096)')
-    parser.add_argument('--scale_multiplier', type=int, default=10,
-                        help='multiplicative factor used to rescale inputs.')
-    parser.add_argument('--batch_size', type=int, default=32,
-                        help='batch size (default: 32).')
-    parser.add_argument('--lr', type=float, default=0.001,
-                        help='learning rate (default: 0.001)')
-    parser.add_argument("--patience", type=int, default=7,
-                        help='maximum number of epochs without reducing the learning rate (default: 7)')
-    parser.add_argument("--min_lr", type=float, default=1e-7,
-                        help='minimum learning rate (default: 1e-7)')
-    parser.add_argument("--lr_factor", type=float, default=0.1,
-                        help='reducing factor for the lr in a plateu (default: 0.1)')
-    parser.add_argument('--net_filter_size', type=int, nargs='+', default=[64, 128, 196, 256, 320],
-                        help='filter size in resnet layers (default: [64, 128, 196, 256, 320]).')
-    parser.add_argument('--net_seq_lengh', type=int, nargs='+', default=[4096, 1024, 256, 64, 16],
-                        help='number of samples per resnet layer (default: [4096, 1024, 256, 64, 16]).')
-    parser.add_argument('--dropout_rate', type=float, default=0.8,
-                        help='dropout rate (default: 0.8).')
-    parser.add_argument('--kernel_size', type=int, default=17,
-                        help='kernel size in convolutional layers (default: 17).')
-    parser.add_argument('--folder', default='model/',
-                        help='output folder (default: ./out)')
-    parser.add_argument('--traces_dset', default='tracings',
-                        help='traces dataset in the hdf5 file.')
-    parser.add_argument('--ids_dset', default='',
-                        help='by default consider the ids are just the order')
-    parser.add_argument('--age_col', default='age',
-                        help='column with the age in csv file.')
-    parser.add_argument('--ids_col', default=None,
-                        help='column with the ids in csv file.')
-    parser.add_argument('--cuda', action='store_true',
-                        help='use cuda for computations. (default: False)')
-    parser.add_argument('--n_valid', type=int, default=100,
-                        help='the first `n_valid` exams in the hdf will be for validation.'
-                             'The rest is for training')
-    parser.add_argument('path_to_traces',
-                        help='path to file containing ECG traces')
-    parser.add_argument('path_to_csv',
-                        help='path to csv file containing attributes.')
-    args, unk = parser.parse_known_args()
-    # Check for unknown options
-    if unk:
-        warn("Unknown arguments:" + str(unk) + ".")
-
-    torch.manual_seed(args.seed)
-    print(args)
+    # Create folder if not existing
+    if not os.path.exists(args.model):
+        os.makedirs(args.model)
+    
     # Set device
-    device = torch.device('cuda:0' if args.cuda else 'cpu')
-    folder = args.folder
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # Generate output folder if needed
-    if not os.path.exists(args.folder):
-        os.makedirs(args.folder)
+    # Create config
+    argument_path = os.path.join(args.model, 'args.json')
+    with open(argument_path, "w") as f:
+        json.dump(vars(args), f, indent='\t')
     
-    # Get model
-    ckpt = torch.load(os.path.join(args.folder, 'model.pth'), map_location=lambda storage, loc: storage)
-    # Get config
-    config = os.path.join(args.folder, 'config.json')
+    # Load checkpoints
+    model_path = os.path.join(args.tune_model, 'model.pth')
+    checkpoints = torch.load(model_path, map_location=lambda storage, loc: storage)
+    
+    # Part 1 - Build data loaders
+    tqdm.write("\nPart 1: Building data loaders...")
 
-    tqdm.write("Building data loaders...")
-    # Get csv data
-    df = pd.read_csv(args.path_to_csv, index_col=args.ids_col)
+    # Open data
+    metadata, exam_id, ages, traces = open_data(args)
 
-    # Remove nans
-    df.dropna(axis=0, subset=[args.age_col],inplace=True)
+    # Set validation/training mask
+    validation_mask, training_mask = data_masking(args, len(metadata))
+    
+    # Compute weights
+    weights = compute_weights(args, ages)
 
-    ages = df[args.age_col]
-    # Get h5 data
-    f = h5py.File(args.path_to_traces, 'r')
-    traces = f[args.traces_dset]
-    if args.ids_dset:
-        h5ids = f[args.ids_dset]
-        df = df.reindex(h5ids, fill_value=False, copy=True)
-    # Train/ val split
-    valid_mask = np.arange(len(df)) <= args.n_valid
-    train_mask = ~valid_mask
-    # weights
-    weights = compute_weights(ages)
-    # Dataloader
-    train_loader = BatchDataloader(traces, ages, weights, bs=args.batch_size, mask=train_mask)
-    valid_loader = BatchDataloader(traces, ages, weights, bs=args.batch_size, mask=valid_mask)
-    tqdm.write("Done!")
+    # Dataloaders
+    train_loader = BatchDataloader(traces, ages, weights, bs=args.batch_size, mask=training_mask)
+    valid_loader = BatchDataloader(traces, ages, weights, bs=args.batch_size, mask=validation_mask)
+    
+    tqdm.write("\tData is loaded!\n")
 
-    tqdm.write("Load model...")
-    N_LEADS = 12  # the 12 leads
-    N_CLASSES = 1  # just the age
+    # Part 2 - Define model
+    tqdm.write("Part 2: Defining model...")
+
+    # Define resnet + settings
     model = ResNet1d(input_dim=(N_LEADS, args.seq_length),
-                     blocks_dim=list(zip(args.net_filter_size, args.net_seq_lengh)),
-                     n_classes=N_CLASSES,
-                     kernel_size=args.kernel_size,
-                     dropout_rate=args.dropout_rate)
+                    blocks_dim=list(zip(args.net_filter_size, args.net_seq_length)),
+                    n_classes=N_CLASSES,
+                    kernel_size=args.kernel_size,
+                    dropout_rate=args.dropout_rate)
     
-    # load model checkpoint
-    model.load_state_dict(ckpt["model"])
-    model.to(device=device)
-    tqdm.write("Done!")
+    # Checking training type
+    if args.tune:
+        tqdm.write("\tFine tuning existing model.")
+        model.load_state_dict(checkpoints["model"])
+        model.to(device=device)
+    else:
+        tqdm.write("\tCreating new model.")
+        model.to(device=device)
+    
+    tqdm.write("\tModel is defined!\n")
 
-    tqdm.write("Define optimizer...")
+    # Part 3 - Define optimizer
+    tqdm.write("Part 3: Defining optimizer...")
     optimizer = optim.Adam(model.parameters(), args.lr)
-    tqdm.write("Done!")
+    tqdm.write("\tOptimizer is defined!\n")
 
-    tqdm.write("Define scheduler...")
+    # Part 4 - Define scheduler
+    tqdm.write("Part 4: Defining scheduler...")
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=args.patience,
-                                                     min_lr=args.lr_factor * args.min_lr,
-                                                     factor=args.lr_factor)
-    tqdm.write("Done!")
+                                                    min_lr=args.lr_factor * args.min_lr,
+                                                    factor=args.lr_factor)    
+    tqdm.write("\tScheduler is defined!\n")
 
-    tqdm.write("Training...")
+    # Part 5 - Train data
+    tqdm.write("Part 5: Training model...\n")
+    
+    # Prepare training
     start_epoch = 0
     best_loss = np.Inf
+
+    # Create dataframe for training history
     history = pd.DataFrame(columns=['epoch', 'train_loss', 'valid_loss', 'lr',
                                     'weighted_rmse', 'weighted_mae', 'rmse', 'mse'])
-    for ep in range(start_epoch, args.epochs):
-        train_loss = train(ep, train_loader)
-        valid_loss = eval(ep, valid_loader)
-        # Save best model
+    
+    # Epoch (Training) loop
+    for epoch in range(start_epoch, args.epochs):
+
+        # Train (and store loss)
+        train_loss = training(epoch, args.epochs, train_loader, model, device, optimizer)
+        valid_loss = evaluate(epoch, args.epochs, valid_loader, model, device, optimizer)
+
+        # Save model (if better)
         if valid_loss < best_loss:
-            # Save model
-            torch.save({'epoch': ep,
-                        'model': model.state_dict(),
-                        'valid_loss': valid_loss,
-                        'optimizer': optimizer.state_dict()},
-                       os.path.join(folder, 'model.pth'))
-            # Update best validation loss
+            torch.save({'epoch': epoch,
+                            'model': model.state_dict(),
+                            'valid_loss': valid_loss,
+                            'optimizer': optimizer.state_dict()},
+                        os.path.join(args.model, 'model.pth'))
+
+            # Set new loss
             best_loss = valid_loss
+
         # Get learning rate
         for param_group in optimizer.param_groups:
             learning_rate = param_group["lr"]
+        
         # Interrupt for minimum learning rate
         if learning_rate < args.min_lr:
             break
-        # Print message
-        tqdm.write('Epoch {:2d}: \tTrain Loss {:.6f} ' \
-                  '\tValid Loss {:.6f} \tLearning Rate {:.7f}\t'
-                 .format(ep, train_loss, valid_loss, learning_rate))
-        # Save history
-        history = history.append({"epoch": ep, "train_loss": train_loss,
-                                  "valid_loss": valid_loss, "lr": learning_rate}, ignore_index=True)
-        history.to_csv(os.path.join(folder, 'history.csv'), index=False)
+
+        # Give status on latest epoch 
+        tqdm.write(f"\tEpoch: {epoch}.\n\tTrain Loss {train_loss}.")
+        tqdm.write(f"\tValid loss: {valid_loss}.\n\tLearning rate {learning_rate}.")
+
+        # Update history
+        history = history.append({"epoch": epoch, "train_loss": train_loss,
+                                "valid_loss": valid_loss, "lr": learning_rate}, ignore_index=True)
+        history.to_csv(os.path.join(args.model, 'history.csv'), index=False)        
+
         # Update learning rate
         scheduler.step(valid_loss)
-    tqdm.write("Done!")
+
+    tqdm.write("Model trained!")
+
+# Subfunctions
+def open_data(args):
+    """ Reads metadata and trace data. """
+
+    # Read metadata
+    metadata = pd.read_csv(args.metadata, index_col=args.id_col)
+
+    # Read data (HDF5)
+    hdf_data = h5py.File(args.data, 'r')
+    traces = hdf_data[args.traces_dset]
+    exam_id = hdf_data[args.ids_dset]
+
+    # Reindex data based on exam ids from hdf5 (remove values not present)
+    metadata = metadata.reindex(exam_id, fill_value=False, copy=True)
+
+    # Extract age (Important to do this after reindex)
+    ages = metadata[args.age_col]
+
+    # Return
+    return(metadata, exam_id, ages, traces)
+
+def data_masking(args, n):
+    """ Sets validation and training data mask. """
+
+    # Check validation percentage
+    if args.validation_percentage < 0.01 or args.validation_percentage > 0.99:
+        raise ValueError(f"Validation percentage is {args.validation_percentage * 100}. It must be between 0.01% and 100%.")
+
+    # Calculate number of samples
+    n_validation = n * args.validation_percentage
+    n_validation = int(round(n_validation, 0))
+    
+    # Set validation mask
+    validation_mask = np.arange(n) <= n_validation
+
+    # Set training mask
+    training_mask = ~validation_mask
+    ## NOTE: The n_validation is 0-based, and thererefore will cause the following: n=0 == 1 case etc.
+
+    # Return
+    return(validation_mask, training_mask)
+
+def compute_weights(args, age):
+    """ Compute weights """
+
+    # Calculate unique values (unique), the indecies of the unique (inverse), and the counts (counts)
+    unique, inverse, counts = np.unique(age, return_inverse=True, return_counts=True)
+
+    # Set weights as percentage of counts of various ages
+    weights = 1 / counts[inverse]
+    normalized_weights = weights / sum(weights) # normalize weights
+    normalized_weights = len(age) * normalized_weights
+
+    # Return
+    return(normalized_weights)
+
+def compute_loss(ages, predicted_ages, weights):
+    """ Computes loss. """
+
+    # Calculate difference between real age and predicted ages
+    difference = ages.flatten() - predicted_ages.flatten()
+
+    # Calculate loss 
+    loss = torch.sum(weights.flatten() * difference * difference)
+    
+    # Return
+    return(loss)    
+
+def training(epoch, n_epochs, train_data, model, device, optimizer):
+    """ Trains model on test data. """
+
+    # Put model into training mode
+    model.train()
+
+    # Set defaults
+    total_loss = 0
+    total_entries = 0
+
+    # Build progress bar
+    train_desc = "Epoch {:2d}/{} | Training loss: {:.6f}"
+    train_bar = tqdm(initial=0, leave=True, total=len(train_data),
+                    desc=train_desc.format(epoch, n_epochs, 0, 0), position=0)
+    
+    # Run model
+    for traces, ages, weights in train_data:
+        
+        # Transpose traces
+        traces = traces.transpose(1, 2)
+
+        # Send data to device (CUDA or CPU)
+        traces, ages, weights = traces.to(device), ages.to(device), weights.to(device)
+
+        # Set gradients
+        model.zero_grad()
+
+        # Predict ages (forward pass)
+        predicted_ages = model(traces)
+
+        # Calculate loss
+        loss = compute_loss(ages, predicted_ages, weights)
+
+        # Backwards pass
+        loss.backward()
+
+        # Optimize
+        optimizer.step()
+
+        # Update
+        bs = len(traces)
+        total_loss += loss.detach().cpu().numpy()
+        total_entries += bs
+        
+        # Update progress bar
+        train_bar.desc = train_desc.format(epoch, n_epochs, total_loss / total_entries)
+        train_bar.update(1)
+    
+    # Close train bar
+    train_bar.close()
+    return(total_loss / total_entries)
+
+
+
+def evaluate(epoch, n_epochs, validation_data, model, device, optimizer):
+    """ Evaluates model on validation data. """
+
+    # Put model into evaluation mode
+    model.eval()
+
+    # Set defaults
+    total_loss = 0
+    total_entries = 0
+
+    # Build progress bar
+    eval_desc = "Epoch {:2d}/{} | Training loss: {:.6f}"
+    eval_bar = tqdm(initial=0, leave=True, total=len(validation_data),
+                    desc=eval_desc.format(epoch, n_epochs, 0, 0), position=0)
+    
+    # Run model
+    for traces, ages, weights in validation_data:
+
+        # Transpose traces
+        traces = traces.transpose(1, 2)
+
+        # Send data to device (CUDA or CPU)
+        traces, ages, weights = traces.to(device), ages.to(device), weights.to(device)
+    
+        # Compute gradient  
+        with torch.no_grad():
+
+            # Predict (Forward pass)
+            predicted_ages = model(traces)
+
+            # Compute loss
+            loss = compute_loss(ages, predicted_ages, weights)
+
+            # Update outputs
+            bs = len(traces)
+            total_loss += loss.detach().cpu().numpy()
+            total_entries += bs
+        
+            # Update progress bar result
+            eval_bar.desc = eval_desc.format(epoch, n_epochs, total_loss / total_entries)
+            eval_bar.update(1)
+    eval_bar.close()
+    
+    return(total_loss / total_entries)

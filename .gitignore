@@ -6,6 +6,23 @@ __pycache__/
 # C extensions
 *.so
 
+# Raw data
+data-raw/ptb-xl
+data-raw/code-15
+data-raw/cardiovascular_complications
+data-raw/test
+
+# Model
+model/config.json
+model/model.pth
+model/history.csv
+
+# Data
+data/metadata*
+data/predictions*
+
+.DS_Store
+
 # Distribution / packaging
 .Python
 build/

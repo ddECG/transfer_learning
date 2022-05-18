@@ -1,5 +1,3 @@
-# No changes from lima et al.
-
 import torch.nn as nn
 import numpy as np
 
