@@ -16,6 +16,7 @@ data-raw/test
 model/config.json
 model/model.pth
 model/history.csv
+model*
 
 # Data
 data/metadata*

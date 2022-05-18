@@ -63,11 +63,11 @@ def convert(args):
         # Check if data is to be extracted into folders or single file
         if not args.folder:
             files = data_files
-            stem = ""
+            stem = "data"
         else:
             # Find data files with given stem
             files = [x for x in data_files if x.match('*/' + str(stem) + '/*')]
-        
+        print(str(folder) + "/" + str(stem) + ".hdf5")
         # Check if file is present
         if len(files) == 0:
             continue
@@ -105,6 +105,7 @@ def convert(args):
         # Save data
         save_hdf(signal_data, exam_data, age_data, stem, folder, args.save_hdf)
 
+    # Save 
     save_csv(metadata, args.save_csv, args.id_col)
 
     # Status
