@@ -12,6 +12,12 @@ data-raw/code-15
 data-raw/cardiovascular_complications
 data-raw/test
 
+# Data
+data/metadata*
+data/predictions*
+
+.DS_Store
+
 # Distribution / packaging
 .Python
 build/

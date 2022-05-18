@@ -7,6 +7,7 @@ from tqdm import tqdm
 from convert_hdf import convert
 from predict import predict
 from train import train
+from clean import clean
 
 # Constants
 import constants
@@ -17,6 +18,13 @@ if __name__ == "__main__":
     # Define parsers
     parser = argparse.ArgumentParser(prog='PROG')
     subparsers = parser.add_subparsers(dest='function')
+
+    # Clean arguments
+    parser_clean = subparsers.add_parser('clean', help='Clean PTB-xl metadata.')
+    parser_clean.add_argument('--path', required=True, type=str,
+                            help='Path to metadata (.csv).')                  
+    parser_clean.add_argument('--save', required=True, type=str,
+                            help='Filename/path to save cleaned data.')
 
     # Convert arguments
     parser_convert = subparsers.add_parser('convert', help='Convert wfdb files to HDF5.')
@@ -122,7 +130,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Run function
-    if args.function == 'convert':
+    if args.function == 'clean':
+
+        # Info
+        tqdm.write("\n\nCleaning PTB-xl metadata. Main settings:")
+        tqdm.write(f"\tPath to original file: '{args.path}'")
+        tqdm.write(f"\tSave locations: '{args.save}'\n")
+
+        # Run script
+        clean(args)
+    
+    elif args.function == 'convert':
 
         # Info
         tqdm.write("\n\nConverting WFDB files to hdf5. Main settings:")
