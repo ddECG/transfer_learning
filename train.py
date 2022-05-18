@@ -308,5 +308,5 @@ def evaluate(epoch, n_epochs, validation_data, model, device, optimizer):
             eval_bar.desc = eval_desc.format(epoch, n_epochs, total_loss / total_entries)
             eval_bar.update(1)
     eval_bar.close()
+    
     return(total_loss / total_entries)
-
