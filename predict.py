@@ -41,7 +41,7 @@ def predict(args):
     
     # Load model
     model = ResNet1d(input_dim=(N_LEADS, config['seq_length']),
-                    blocks_dim=list(zip(config['net_filter_size'], config['net_seq_lengh'])),
+                    blocks_dim=list(zip(config['net_filter_size'], config['net_seq_length'])),
                     n_classes=1,
                     kernel_size=config['kernel_size'],
                     dropout_rate=config['dropout_rate'])
