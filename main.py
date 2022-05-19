@@ -8,6 +8,7 @@ from convert_hdf import convert
 from predict import predict
 from train import train
 from clean import clean
+from id import fix_id
 
 # Constants
 import constants
@@ -130,6 +131,19 @@ if __name__ == "__main__":
     parser_train.add_argument('--epochs', type=int, default=70,
                         help='Maximum number of epochs (default: 70).')
 
+    # Clean HDF
+    parser_id = subparsers.add_parser('id', help='Adds ID to hdf.')
+
+    parser_id.add_argument('--data', required=True, type=str,
+                            help='Path to data (.hea + .dat).')
+    parser_id.add_argument('--metadata', required=True, type=str,
+                            help='Path to metadata (.csv).')   
+    parser_id.add_argument('--save_hdf', required=True, type=str,
+                            help='Path to save converted wfdb (.hdf5).')
+    
+    parser_id.add_argument('--replace', default=False, type=bool,
+                            help='Replace exising data if it exists (default: False).')
+
     # Parse args
     args = parser.parse_args()
 
@@ -176,3 +190,12 @@ if __name__ == "__main__":
 
         # Run script
         train(args)
+    
+    if args.function == 'id':
+        # Info
+        tqdm.write("\n\tSetting ID in HDF file. Main settings:")
+        tqdm.write(f"\tData file/folder: '{args.data}'")
+        tqdm.write(f"\tMetadata: '{args.metadata}'")
+
+        # Run script
+        fix_id(args)
