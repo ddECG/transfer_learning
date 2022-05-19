@@ -45,7 +45,7 @@ def train(args):
     tqdm.write("\nPart 1: Building data loaders...")
 
     # Open data
-    metadata, exam_id, ages, traces, norm = open_data(args)
+    metadata, exam_id, ages, traces = open_data(args)
 
     # Set validation/training mask
     validation_mask, training_mask = data_masking(args, len(metadata))
@@ -180,7 +180,7 @@ def open_data(args):
     hdf_data = h5py.File(args.data, 'r')
     traces = hdf_data[args.traces_dset]
     exam_id = hdf_data[args.ids_dset]
-    norm = hdf_data["norm"]
+    # norm = hdf_data["norm"]
 
     # Reindex data based on exam ids from hdf5 (remove values not present)
     metadata = metadata.reindex(exam_id, fill_value=False, copy=True)
@@ -189,7 +189,7 @@ def open_data(args):
     ages = metadata[args.age_col]
 
     # Return
-    return(metadata, exam_id, ages, traces, norm)
+    return(metadata, exam_id, ages, traces)
 
 def data_masking(args, n):
     """ Sets validation and training data mask. """
