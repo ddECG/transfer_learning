@@ -99,7 +99,6 @@ def convert(args):
             signal_data.append(signal)
             exam_data.append(exam_id)
             age_data.append(int(df[args.age_col].values[0]))
-            norm_data.append(bool(df["NORM"].values[0]))
 
         # Combine stack
         signal_data = np.stack(signal_data, axis=0)
