@@ -85,6 +85,8 @@ if __name__ == "__main__":
                             help='Folder to save model in (default: "model").')
     parser_train.add_argument('--tune', type=bool, default=False,
                             help='Fine tune based on old model. Needs --tune_model if True. (default: "False").')
+    parser_train.add_argument('--modify', type=bool, default=False,
+                            help='Modify model based on old model. Needs --tune_model if True. (default: "False").')
     parser_train.add_argument('--tune_model', type=str, required='--tune' in sys.argv,
                             help='Folder to old model in. Only required if fine tuning')
 

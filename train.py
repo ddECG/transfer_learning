@@ -1,17 +1,18 @@
 # External libraries
 import os
 from tqdm import tqdm
-import torch
 import json
 import pandas as pd
 import h5py
-import torch.optim as optim
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
 
 # Internal libraries
 from resnet import ResNet1d
 from dataloader import BatchDataloader
-
 
 # Constants
 from constants import N_LEADS, N_CLASSES
@@ -34,19 +35,17 @@ def train(args):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Create config
-    argument_path = os.path.join(args.model, 'args.json')
+    argument_path = os.path.join(args.model, 'config.json')
     with open(argument_path, "w") as f:
         json.dump(vars(args), f, indent='\t')
     
     # Load checkpoints
-    model_path = os.path.join(args.tune_model, 'model.pth')
-    checkpoints = torch.load(model_path, map_location=lambda storage, loc: storage)
     
     # Part 1 - Build data loaders
     tqdm.write("\nPart 1: Building data loaders...")
 
     # Open data
-    metadata, exam_id, ages, traces = open_data(args)
+    metadata, exam_id, ages, traces, norm = open_data(args)
 
     # Set validation/training mask
     validation_mask, training_mask = data_masking(args, len(metadata))
@@ -72,10 +71,29 @@ def train(args):
     
     # Checking training type
     if args.tune:
+
+        # Fine tuning model
         tqdm.write("\tFine tuning existing model.")
+        model_path = os.path.join(args.tune_model, 'model.pth')
+        checkpoints = torch.load(model_path, map_location=lambda storage, loc: storage)
         model.load_state_dict(checkpoints["model"])
         model.to(device=device)
+    elif args.modify:
+        # Modifying
+        tqdm.write("Modifying model")
+        # Freeze layers
+        for param in model.parameters():
+            param.requires_grad = False
+
+        # Modify last layer
+        model.lin = nn.Linear(5120,1,bias=True)
+        model.to(device=device)
+
+        #model.fc = nn.Linear(1000, 8)
+        # number_features = model.lin[6].in_features
+
     else:
+        # Creating new model
         tqdm.write("\tCreating new model.")
         model.to(device=device)
     
@@ -102,14 +120,15 @@ def train(args):
 
     # Create dataframe for training history
     history = pd.DataFrame(columns=['epoch', 'train_loss', 'valid_loss', 'lr',
-                                    'weighted_rmse', 'weighted_mae', 'rmse', 'mse'])
+                                    'train_accuracy', 'train_error', 
+                                    'valid_accuracy', 'valid_error'])
     
     # Epoch (Training) loop
     for epoch in range(start_epoch, args.epochs):
 
         # Train (and store loss)
-        train_loss = training(epoch, args.epochs, train_loader, model, device, optimizer)
-        valid_loss = evaluate(epoch, args.epochs, valid_loader, model, device, optimizer)
+        train_loss, train_accuracy, train_error = training(epoch, args.epochs, train_loader, model, device, optimizer)
+        valid_loss, valid_accuracy, valid_error = evaluate(epoch, args.epochs, valid_loader, model, device, optimizer)
 
         # Save model (if better)
         if valid_loss < best_loss:
@@ -130,13 +149,19 @@ def train(args):
         if learning_rate < args.min_lr:
             break
 
-        # Give status on latest epoch 
-        tqdm.write(f"\tEpoch: {epoch}.\n\tTrain Loss {train_loss}.")
-        tqdm.write(f"\tValid loss: {valid_loss}.\n\tLearning rate {learning_rate}.")
+        # Training set status
+        tqdm.write(f"Training set")
+        tqdm.write(f"\tEpoch: {epoch}\n\tTrain Loss {train_loss}\n\t Average accuracy: {train_accuracy}\n\t Average error {train_error}\n")
+
+        # Validation set status
+        tqdm.write(f"Validation set")
+        tqdm.write(f"\tValid loss: {valid_loss}\n\tLearning rate {learning_rate}\n\t Average accuracy: {valid_accuracy}\n\t Average error {valid_error}")
 
         # Update history
         history = history.append({"epoch": epoch, "train_loss": train_loss,
-                                "valid_loss": valid_loss, "lr": learning_rate}, ignore_index=True)
+                                "valid_loss": valid_loss, "lr": learning_rate,
+                                "train_accuracy": train_accuracy, "train_error": train_error,
+                                "valid_accuracy": valid_accuracy, "valid_error": valid_error}, ignore_index=True)
         history.to_csv(os.path.join(args.model, 'history.csv'), index=False)        
 
         # Update learning rate
@@ -155,6 +180,7 @@ def open_data(args):
     hdf_data = h5py.File(args.data, 'r')
     traces = hdf_data[args.traces_dset]
     exam_id = hdf_data[args.ids_dset]
+    norm = hdf_data["norm"]
 
     # Reindex data based on exam ids from hdf5 (remove values not present)
     metadata = metadata.reindex(exam_id, fill_value=False, copy=True)
@@ -163,7 +189,7 @@ def open_data(args):
     ages = metadata[args.age_col]
 
     # Return
-    return(metadata, exam_id, ages, traces)
+    return(metadata, exam_id, ages, traces, norm)
 
 def data_masking(args, n):
     """ Sets validation and training data mask. """
@@ -208,9 +234,15 @@ def compute_loss(ages, predicted_ages, weights):
 
     # Calculate loss 
     loss = torch.sum(weights.flatten() * difference * difference)
-    
+
+    # Calculate relative error and accuracy
+    relative_error = abs((difference / ages.flatten()) * 100)
+    accuracy = 100 - relative_error
+    relative_error = torch.sum(relative_error) / len(ages)
+    accuracy = torch.sum(accuracy) / len(ages)
+
     # Return
-    return(loss)    
+    return(loss, relative_error, accuracy)    
 
 def training(epoch, n_epochs, train_data, model, device, optimizer):
     """ Trains model on test data. """
@@ -220,16 +252,19 @@ def training(epoch, n_epochs, train_data, model, device, optimizer):
 
     # Set defaults
     total_loss = 0
+    total_accuracy = 0
+    total_error = 0
     total_entries = 0
 
     # Build progress bar
-    train_desc = "Epoch {:2d}/{} | Training loss: {:.6f}"
+    train_desc = "Epoch: {:2d}/{} | Loss: {:.6f} | Accuracy: {:.1f}% | Error: {:.1f}%"
     train_bar = tqdm(initial=0, leave=True, total=len(train_data),
-                    desc=train_desc.format(epoch, n_epochs, 0, 0), position=0)
+                    desc=train_desc.format(epoch, n_epochs, 0, 0, 0, 0), position=0)
     
+    count = 1
     # Run model
     for traces, ages, weights in train_data:
-        
+
         # Transpose traces
         traces = traces.transpose(1, 2)
 
@@ -243,7 +278,7 @@ def training(epoch, n_epochs, train_data, model, device, optimizer):
         predicted_ages = model(traces)
 
         # Calculate loss
-        loss = compute_loss(ages, predicted_ages, weights)
+        loss, error, accuracy = compute_loss(ages, predicted_ages, weights)
 
         # Backwards pass
         loss.backward()
@@ -251,18 +286,22 @@ def training(epoch, n_epochs, train_data, model, device, optimizer):
         # Optimize
         optimizer.step()
 
-        # Update
-        bs = len(traces)
+        # Update stats
         total_loss += loss.detach().cpu().numpy()
-        total_entries += bs
-        
+        total_accuracy += accuracy.detach().cpu().numpy()
+        average_accuracy = total_accuracy / count
+        total_error += error.detach().cpu().numpy()
+        average_error = total_error / count
+        total_entries += len(traces)
+        count += 1
+
         # Update progress bar
-        train_bar.desc = train_desc.format(epoch, n_epochs, total_loss / total_entries)
+        train_bar.desc = train_desc.format(epoch, n_epochs, total_loss / total_entries, accuracy, error)
         train_bar.update(1)
     
     # Close train bar
     train_bar.close()
-    return(total_loss / total_entries)
+    return(total_loss / total_entries, average_accuracy, average_error)
 
 
 
@@ -275,12 +314,15 @@ def evaluate(epoch, n_epochs, validation_data, model, device, optimizer):
     # Set defaults
     total_loss = 0
     total_entries = 0
+    total_accuracy = 0
+    total_error = 0
 
     # Build progress bar
-    eval_desc = "Epoch {:2d}/{} | Training loss: {:.6f}"
+    eval_desc = "Epoch: {:2d}/{} | Loss: {:.6f} | Accuracy: {:.1f}% | Error: {:.1f}%"
     eval_bar = tqdm(initial=0, leave=True, total=len(validation_data),
-                    desc=eval_desc.format(epoch, n_epochs, 0, 0), position=0)
+                    desc=eval_desc.format(epoch, n_epochs, 0, 0, 0, 0), position=0)
     
+    count = 1
     # Run model
     for traces, ages, weights in validation_data:
 
@@ -297,16 +339,20 @@ def evaluate(epoch, n_epochs, validation_data, model, device, optimizer):
             predicted_ages = model(traces)
 
             # Compute loss
-            loss = compute_loss(ages, predicted_ages, weights)
+            loss, error, accuracy = compute_loss(ages, predicted_ages, weights)
 
-            # Update outputs
-            bs = len(traces)
+            # Update stats
             total_loss += loss.detach().cpu().numpy()
-            total_entries += bs
-        
+            total_accuracy += accuracy.detach().cpu().numpy()
+            average_accuracy = total_accuracy / count
+            total_error += error.detach().cpu().numpy()
+            average_error = total_error / count
+            total_entries += len(traces)
+            count += 1
+
             # Update progress bar result
-            eval_bar.desc = eval_desc.format(epoch, n_epochs, total_loss / total_entries)
+            eval_bar.desc = eval_desc.format(epoch, n_epochs, total_loss / total_entries, accuracy, error)
             eval_bar.update(1)
     eval_bar.close()
     
-    return(total_loss / total_entries)
+    return(total_loss / total_entries, average_accuracy, average_error)
