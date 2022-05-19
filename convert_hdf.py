@@ -63,7 +63,7 @@ def convert(args):
         signal_data = []
         exam_data = []
         age_data = []
-        norm_data = []
+        # _data = []
 
         # Check if data is to be extracted into folders or single file
         if not args.folder:
@@ -107,10 +107,10 @@ def convert(args):
 
         age_data = np.stack(age_data, axis=0)
 
-        norm_data = np.stack(norm_data, axis=0)
+        # norm_data = np.stack(norm_data, axis=0)
 
         # Save data
-        save_hdf(signal_data, exam_data, age_data, norm_data, stem, folder, args.save_hdf)
+        save_hdf(signal_data, exam_data, age_data, stem, folder, args.save_hdf)
 
     # Save 
     save_csv(metadata, args.save_csv, args.id_col)
@@ -133,7 +133,7 @@ def extract_signal(record):
     # Return
     return(signal)
 
-def save_hdf(tracings, exams, age, norm, stem, folder, hdf_save):
+def save_hdf(tracings, exams, age, stem, folder, hdf_save):
     """ Creates a h5py file strcuture. """
 
     # Extract first dimension
@@ -147,7 +147,7 @@ def save_hdf(tracings, exams, age, norm, stem, folder, hdf_save):
         f.create_dataset("tracings", (n_items, 4096, 12), data=tracings, dtype='<f4')
         f.create_dataset("exam_id", data=exams, dtype='int64')
         f.create_dataset("true_age", data=age, dtype='int64')
-        f.create_dataset("norm", data=norm, dtype='bool')
+        # f.create_dataset("norm", data=norm, dtype='bool')
 
 
 def save_csv(metadata, csv_save, index):
