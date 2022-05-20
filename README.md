@@ -7,43 +7,49 @@ There are several functionalities, including 1) converting wfdb files to hdf5, 2
 
 
 ### 1. Convert .dat to hdf5
-PTB-XL data is stored as .dat files, and can not natively be incorperated into the <em>Lima. et. al.</em> model. One must first convert the files to HDF5 using the following command structure: 
+PTB-XL data is stored as .dat files, and can not natively be incorperated into the <em>Lima. et. al.</em> model. One must first convert the files to HDF5 using the convert function. Basic syntax: 
 ```
 # Function structure
 python main.py convert --data DATA_PATH --metadata METADATA_FILE --save_hdf SAVE_HDF_PATH --save_csv SAVE_CSV_PATH
 
 # View help
-
+python main.py convert --help
 ```
 
-**Example**
-Convert .dat data in the 'data-raw/ptb-xl/data/' and store as 'data/ptbxl.hdf5'.
+**Example**: Convert .dat data in the 'data-raw/ptb-xl/data/' and store as 'data/ptbxl.hdf5'.
 ```
 python main.py convert --data "data-raw/ptb-xl/data/" --metadata "data-raw/ptb-xl/metadata.csv" --save_hdf "data/ptbxl.hdf5" --recursive True --replace True --save_csv "data/metadata.csv"
 ```
 ### 2. Train model
-Trains model based on predefined model arcitechture. Can be created by fine tuning or from scratch.
+Trains model based on predefined model arcitechture. Can be created by fine tuning or from scratch. Basic synstax:
 
 ```
 # Function structure
 python main.py train --data DATA_PATH --metadata METADATA_PATH --model MODEL_PATH
 
 # View help
+python main.py train --help
+```
 
-
-**Example**
-Train model using fine tuning based on model stored in 'model/' folder.
+**Example**: Train model using fine tuning based on model stored in 'model/' folder.
 ```
 python main.py train --data "data/ptbxl.hdf5" --metadata "data/metadata.csv" --model "model_ptbxl" --replace True --validation_percentage 0.2 --batch_size 6 --epochs 2 --tune True --tune_model "model/"
 ```
 
-### 2. Predict age
-Create predictions of age based on predefined model.
-**Main function**
-`python main.py predict --data DATA_PATH --save PREDICTION_SAVE_PATH`
+### 3. Predict age based on model
+Create predictions of age based on predefined model. Basic syntax:
+```
+# Function structure
+python main.py predict --data DATA_PATH --save PREDICTION_SAVE_PATH
 
-**Example**
-`python main.py predict --data "data/ptbxl.hdf5" --save "data/predictions.csv" --replace True`
+# View help
+python main.py predict --help
+```
+
+**Example**: Predict ages in 'data/ptbxl.hdf' and store predictions as 'data/predictions.csv'.
+```
+python main.py predict --data "data/ptbxl.hdf5" --save "data/predictions.csv"
+```
 
 
 
@@ -68,19 +74,6 @@ Create predictions of age based on predefined model.
 **Download raw data**
 Raw data can be downloaded by bash command:
 `wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.1/`
-
-# Help
-View help using the following commands.
-```
-# How to convert wfdb to HDF5
-python main.py convert --help
-
-# How to predict age from ECG
-python main.py predict --help
-
-# How to train model
-python main.py train --help
-```
 
 # Citations
 ## Model and study citation:
