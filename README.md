@@ -6,18 +6,38 @@ There are several functionalities, including 1) converting wfdb files to hdf5, 2
 
 
 
-### Convert wfdb to hdf5
-Converts wfdb files to hdf5 files. 
-
+### 1. Convert .dat to hdf5
+PTB-XL data is stored as .dat files, and can not natively be incorperated into the <em>Lima. et. al.</em> model. One must first convert the files to HDF5 using the following command structure: 
 ```
+# Function structure
 python main.py convert --data DATA_PATH --metadata METADATA_FILE --save_hdf SAVE_HDF_PATH --save_csv SAVE_CSV_PATH
+
+# View help
+
 ```
 
 **Example**
-```python main.py convert --data "data-raw/ptb-xl/data/00000" --metadata "data-raw/ptb-xl/metadata.csv" --save_hdf "data/ptbxl.hdf5" --recursive True --replace True --save_csv "data/metadata.csv"
+Convert .dat data in the 'data-raw/ptb-xl/data/' and store as 'data/ptbxl.hdf5'.
+```
+python main.py convert --data "data-raw/ptb-xl/data/" --metadata "data-raw/ptb-xl/metadata.csv" --save_hdf "data/ptbxl.hdf5" --recursive True --replace True --save_csv "data/metadata.csv"
+```
+### 2. Train model
+Trains model based on predefined model arcitechture. Can be created by fine tuning or from scratch.
+
+```
+# Function structure
+python main.py train --data DATA_PATH --metadata METADATA_PATH --model MODEL_PATH
+
+# View help
+
+
+**Example**
+Train model using fine tuning based on model stored in 'model/' folder.
+```
+python main.py train --data "data/ptbxl.hdf5" --metadata "data/metadata.csv" --model "model_ptbxl" --replace True --validation_percentage 0.2 --batch_size 6 --epochs 2 --tune True --tune_model "model/"
 ```
 
-### Predict age based on ECG data
+### 2. Predict age
 Create predictions of age based on predefined model.
 **Main function**
 `python main.py predict --data DATA_PATH --save PREDICTION_SAVE_PATH`
@@ -25,13 +45,7 @@ Create predictions of age based on predefined model.
 **Example**
 `python main.py predict --data "data/ptbxl.hdf5" --save "data/predictions.csv" --replace True`
 
-### Train model based on ECG data
-Trains model based on predefined model arcitechture. Can be created by fine tuning or from scratch.
 
-**Main function**
-`python main.py train --data DATA_PATH --metadata METADATA_PATH --model MODEL_PATH`
-**Example**
-`python main.py train --data "data/ptbxl.hdf5" --metadata "data/metadata.csv" --model "model_ptbxl" --replace True --validation_percentage 0.2 --batch_size 6 --epochs 2 --tune True --tune_model "model"`
 
 # Data
 ### PTB-xl
