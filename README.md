@@ -4,17 +4,7 @@ Transfer learning model from lima_deep_2021 and CODE-15% to ptb_xl.
 # Functions
 There are several functionalities, including 1) converting wfdb files to hdf5, 2) making predictions of age based on predefined model, 3) training model based on ECG data. To view different functions use:
 
-### View function documentation
-```
-# How to convert wfdb to HDF5
-python main.py convert --help
 
-# How to predict age from ECG
-python main.py predict --help
-
-# How to train model
-python main.py train --help
-```
 
 ### Convert wfdb to hdf5
 Converts wfdb files to hdf5 files. 
@@ -63,7 +53,24 @@ Trains model based on predefined model arcitechture. Can be created by fine tuni
 Raw data can be downloaded by bash command:
 `wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.1/`
 
+# Help
+View help using the following commands.
+```
+# How to convert wfdb to HDF5
+python main.py convert --help
+
+# How to predict age from ECG
+python main.py predict --help
+
+# How to train model
+python main.py train --help
+```
+
 # Citations
-Model and study citation:
+## Model and study citation:
 Lima, E.M., Ribeiro, A.H., Paixão, G.M.M. et al. Deep neural network-estimated electrocardiographic age as a mortality predictor. Nat Commun 12, 5117 (2021). https://doi.org/10.1038/s41467-021-25351-7. 
 Read more at code base https://github.com/antonior92/ecg-age-prediction
+
+## Training data citation:
+Wagner, P., Strodthoff, N., Bousseljot, R., Samek, W., & Schaeffter, T. (2020). PTB-XL, a large publicly available electrocardiography dataset (version 1.0.1). PhysioNet. https://doi.org/10.13026/x4td-x982.
+Read more at https://physionet.org/content/ptb-xl/1.0.1/
