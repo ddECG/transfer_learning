@@ -9,11 +9,13 @@ There are several functionalities, including 1) converting wfdb files to hdf5, 2
 ### Convert wfdb to hdf5
 Converts wfdb files to hdf5 files. 
 
-**Main function**
-`python main.py convert --data DATA_PATH --metadata METADATA_FILE --save_hdf SAVE_HDF_PATH --save_csv SAVE_CSV_PATH`
+```
+python main.py convert --data DATA_PATH --metadata METADATA_FILE --save_hdf SAVE_HDF_PATH --save_csv SAVE_CSV_PATH
+```
 
 **Example**
-`python main.py convert --data "data-raw/ptb-xl/data/00000" --metadata "data-raw/ptb-xl/metadata.csv" --save_hdf "data/ptbxl.hdf5" --recursive True --replace True --save_csv "data/metadata.csv"`
+```python main.py convert --data "data-raw/ptb-xl/data/00000" --metadata "data-raw/ptb-xl/metadata.csv" --save_hdf "data/ptbxl.hdf5" --recursive True --replace True --save_csv "data/metadata.csv"
+```
 
 ### Predict age based on ECG data
 Create predictions of age based on predefined model.
