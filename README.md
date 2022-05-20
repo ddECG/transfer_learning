@@ -4,17 +4,17 @@ Transfer learning model from lima_deep_2021 and CODE-15% to ptb_xl.
 # Functions
 There are several functionalities, including 1) converting wfdb files to hdf5, 2) making predictions of age based on predefined model, 3) training model based on ECG data. To view different functions use:
 
-### Main help
-`python main.py --help`
+### View function documentation
+```
+# How to convert wfdb to HDF5
+python main.py convert --help
 
-### Conversion help
-`python main.py convert --help`
+# How to predict age from ECG
+python main.py predict --help
 
-### Prediction help
-`python main.py predict --help`
-
-### Training help
-`python main.py train --help`
+# How to train model
+python main.py train --help
+```
 
 ### Convert wfdb to hdf5
 Converts wfdb files to hdf5 files. 
